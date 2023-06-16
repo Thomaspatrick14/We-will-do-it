@@ -12,11 +12,12 @@ class MyAstarNode(DTROS):
         super(MyAstarNode, self).__init__(node_name=node_name, node_type=NodeType.GENERIC)
         
         # construct publisher and subscriber
-        self.pub = rospy.Publisher('motor_cmd', MotorCommandMsg, queue_size=10)  # Replace with your motor command topic
+        self.pub = rospy.Publisher('wheels', MotorCommandMsg, queue_size=10)  # Replace with your motor command topic
         self.sub = rospy.Subscriber('odom_data', OdometryMsg, self.callback)  # Replace with your odometry topic
         
     def callback(self, data):
         # process the received odometry data
+        
         # extract relevant information from the odometry message
         # perform your computations or control logic based on the odometry data
         
@@ -42,6 +43,5 @@ if __name__ == '__main__':
     node = MyAstarNode(node_name='my_astar_node')
     # run the node
     node.run()
-    # keep spinning
-    rospy.spin()
+
 
