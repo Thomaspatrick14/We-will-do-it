@@ -3,70 +3,82 @@ import math
 
 NODE_ID_NOT_SET = -1
 
-
 class Node:
     def __init__(self):
-        self.x = 0.0  # x-coordinate [m]
-        self.y = 0.0  # y-coordinate [m]
-        self.g = 0.0  # cost-to-come from the start to this node
-        self.h = 0.0  # heuristic cost-to-go from this node to the goal
-        self.f = 0.0  # total cost (cost-to-come g + heuristic cost-to-go h)
-        self.parent_node_ID = 0  # ID of the node from which node you arrived at this node with the lowest cost-to-come
+        self.x = 0.0
+        self.y = 0.0
+        self.g = float('inf')
+        self.h = 0.0
+        self.f = 0.0
 
 def calculate_distance(node_A, node_B):
     return math.sqrt((node_A.x - node_B.x) ** 2 + (node_A.y - node_B.y) ** 2)
 
-if __name__ == '__main__':
-    # Read the JSON config file
-    with open('FInal_project/We-will-do-it/packages/my_package/config/params_maze_small.json') as file:
-        configfile = json.load(file)
+class AstarPlanner:
+    def __init__(self, config_file):
+        # Default config values
+        self.resolution = 0.0
+        self.pixels_per_node = 0.0
+        self.node_resolution = 0.0
+        self.max_nodes_x = 0
+        self.max_nodes_y = 0
+        self.n_nodes = 0
 
-    # Default config values, will be overwritten if the config file contains the correct information
-    resolution = 0.0
-    pixels_per_node = 0.0
-    node_resolution = 0.0
-    max_nodes_x = 0
-    max_nodes_y = 0
-    n_nodes = 0
+        self.nodelist = []
+        self.connections = []
+        self.entrance_node_id = 0
+        self.finish_node_id = 0
 
-    if 'nodes' in configfile:
-        n_nodes = len(configfile['nodes'])
+        # Read the JSON config file
+        with open(config_file) as file:
+            configfile = json.load(file)
 
-    nodelist = [Node() for _ in range(n_nodes)]
-    connections = [[] for _ in range(n_nodes)]
-    entrance_node_id = 0
-    finish_node_id = 0
+        if 'nodes' in configfile:
+            self.n_nodes = len(configfile['nodes'])
 
-    # Extract relevant information from the config file
-    if 'World' in configfile and 'OccupancyGridMap' in configfile['World']:
-        occupancy_grid_map = configfile['World']['OccupancyGridMap']
-        max_nodes_x = occupancy_grid_map.get('max_nodes_x', 0)
-        max_nodes_y = occupancy_grid_map.get('max_nodes_y', 0)
-        resolution = occupancy_grid_map.get('resolution', 0.0)
-        pixels_per_node = occupancy_grid_map.get('pixels_per_node', 0.0)
-        node_resolution = resolution * pixels_per_node
-        print("Resolution:", resolution)
+        self.nodelist = [Node() for _ in range(self.n_nodes)]
+        self.connections = [[] for _ in range(self.n_nodes)]
 
-    if 'nodes' in configfile and 'entrance' in configfile and 'finish' in configfile and 'connections' in configfile:
-        nodes = configfile['nodes']
-        entrance_node_id = configfile['entrance']
-        finish_node_id = configfile['finish']
+        # Extract relevant information from the config file
+        if 'World' in configfile and 'OccupancyGridMap' in configfile['World']:
+            occupancy_grid_map = configfile['World']['OccupancyGridMap']
+            self.max_nodes_x = occupancy_grid_map.get('max_nodes_x', 0)
+            self.max_nodes_y = occupancy_grid_map.get('max_nodes_y', 0)
+            self.resolution = occupancy_grid_map.get('resolution', 0.0)
+            self.pixels_per_node = occupancy_grid_map.get('pixels_per_node', 0.0)
+            self.node_resolution = self.resolution * self.pixels_per_node
+            print("Resolution:", self.resolution)
 
-        for i_node in range(n_nodes):
-            new_node = Node()
-            new_node.x = node_resolution * (0.5 * max_nodes_x - (nodes[i_node][0] - 0.5))
-            new_node.y = node_resolution * (0.5 * max_nodes_y - (nodes[i_node][1] - 0.5))
-            new_node.g = float('inf')
-            new_node.h = 0.0
-            new_node.f = new_node.g + new_node.h
-            nodelist[i_node] = new_node
+        if 'nodes' in configfile and 'entrance' in configfile and 'finish' in configfile and 'connections' in configfile:
+            nodes = configfile['nodes']
+            self.entrance_node_id = configfile['entrance']
+            self.finish_node_id = configfile['finish']
 
-            connections[i_node] = configfile['connections'][i_node]
+            for i_node in range(self.n_nodes):
+                new_node = Node()
+                new_node.x = self.node_resolution * (0.5 * self.max_nodes_x - (nodes[i_node][0] - 0.5))
+                new_node.y = self.node_resolution * (0.5 * self.max_nodes_y - (nodes[i_node][1] - 0.5))
+                new_node.g = float('inf')
+                new_node.h = 0.0
+                new_node.f = new_node.g + new_node.h
+                self.nodelist[i_node] = new_node
 
-        print("Entrance Node ID:", entrance_node_id)
-        print("Exit Node ID:", finish_node_id)
-        print("Connections:", connections[1][1])
+                self.connections[i_node] = configfile['connections'][i_node]
 
+            print("Entrance Node ID:", self.entrance_node_id)
+            print("Exit Node ID:", self.finish_node_id)
+            print("Connections:", self.connections[1][1])
+
+
+# Example usage
+planner = AstarPlanner('FInal_project/We-will-do-it/packages/my_package/config/params_maze_small.json')
+
+
+# Get the nodelist
+nodelist = planner.nodelist
+finish_node_id = planner.finish_node_id
+entrance_node_id = planner.entrance_node_id
+connections = planner.connections
 
 # Plan a path
 # 0: Initialization
@@ -137,6 +149,4 @@ if goal_reached:
     print("Optimal Path Node IDs:")
     for nodeID in path_node_IDs:
         print(nodeID)
-
-
 
