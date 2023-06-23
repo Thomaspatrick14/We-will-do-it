@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import rospy
+from rospy import signal_shutdown
 from duckietown.dtros import DTROS, NodeType
 from duckietown_msgs.msg import Pose2DStamped  # odometry message type (for x,y,theta)
 from duckietown_msgs.msg import Twist2DStamped  # motor command message type ( for v, omega) 
@@ -22,6 +23,12 @@ class MyAstarNode(DTROS):
         self.sub = rospy.Subscriber('/db8/velocity_to_pose_node/pose', Pose2DStamped, self.callback)  # Replace with your odometry topic
         self.stop_flag = False
         
+    def keyboard_interrupt_handler(self, signal, frame):
+    	rospy.loginfo("Keyboard interrupt received. Stopping the robot.")
+    	self.stop_bot()
+    	signal_shutdown("Keyboard interrupt")
+
+    
     def callback(self, data):
        x = data.x
        y = data.y
@@ -53,21 +60,20 @@ class MyAstarNode(DTROS):
     
     def stop_bot(self):
         self.stop_flag = True
-
-        # while not rospy.is_shutdown():
-        #     twist = Twist()
-        #     twist.linear.x = 0.1  # Set the linear velocity
-        #     twist.angular.z = 0.0  # Set the angular velocity
-        #     rospy.loginfo("Publishing twist command: %s" % twist)
-        #     self.pub.publish(twist)
-        #     rate.sleep()
+        twist = Twist2DStamped()
+	twist.header = Header()
+	twist.header.stamp = rospy.Time.now()
+	twist.header.frame_id = ""
+	twist.v = 0.0  # Set the linear velocity to 0
+	twist.omega = 0.0  # Set the angular velocity to 0
+	self.pub.publish(twist)
         
 
     
 if __name__ == '__main__':
     
     node = MyAstarNode(node_name='astartbasic')
-    #signal.signal(signal.SIGINT, node.keyboard_interrupt_handler)
+    signal.signal(signal.SIGINT, node.keyboard_interrupt_handler)
     
     try: 
     # create the node
