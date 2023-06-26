@@ -71,7 +71,7 @@ class AstarPlanner:
 
 
 # Example usage
-planner = AstarPlanner('FInal_project/We-will-do-it/packages/my_package/config/params_maze_small.json')
+planner = AstarPlanner('packages/my_package/config/params_maze_small.json')
 
 
 # Get the nodelist

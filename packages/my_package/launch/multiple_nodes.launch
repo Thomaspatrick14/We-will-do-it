@@ -1,5 +1,5 @@
 <launch>
 
-  <node pkg="my_package" type="astartbasic.py" name="astartbasic" output="screen"/>
-
+  <node pkg="my_package" type="astar1.py" name="astar1" output="screen"/>
+  
 </launch>

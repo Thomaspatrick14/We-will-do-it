@@ -1,7 +1,6 @@
 def extract_data_from_dict(data):
     world = data['World']
     occupancy_grid_map = world['OccupancyGridMap']
-    filename = occupancy_grid_map['filename']
     resolution = occupancy_grid_map['resolution']
     pixels_per_node = occupancy_grid_map['pixels_per_node']
     max_nodes_x = occupancy_grid_map['max_nodes_x']
