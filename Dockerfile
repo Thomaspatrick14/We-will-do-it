@@ -61,7 +61,7 @@ RUN python3 -m pip install  -r ${REPO_PATH}/dependencies-py3.txt
 # copy the source code
 COPY ./packages "${REPO_PATH}/packages"
 
-
+RUN python3 ./packages/my_package/src/testing.py
 # build packages
 RUN . /opt/ros/${ROS_DISTRO}/setup.sh && \
   catkin build \

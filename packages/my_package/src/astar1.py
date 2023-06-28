@@ -277,7 +277,7 @@ class MyAstarNode(DTROS):
         super(MyAstarNode, self).__init__(node_name=node_name, node_type=NodeType.GENERIC)
         self.pub = rospy.Publisher('/db8/joy_mapper_node/car_cmd', Twist2DStamped, queue_size=10)
 
-    def wrapToPi(angle):
+    def wrapToPi(self,angle):
         if angle > math.pi:
             k = math.ceil(angle / (2 * math.pi))
             angle -= 2 * k * math.pi
@@ -290,8 +290,10 @@ class MyAstarNode(DTROS):
 
 
 
-    def simulate_path_following(nodelist, path_node_IDs, pub):
+    def simulate_path_following(self,nodelist, path_node_IDs):
         # Settings
+
+        pub = self.pub
         cycle_freq = 50.0
         init_waiting_rate = 2.0
         distance_threshold = 0.03  # [m]
@@ -345,7 +347,7 @@ class MyAstarNode(DTROS):
 if __name__ == '__main__':
 
     # # Initialize the ROS node
-    rospy.init_node('astartbasic', anonymous=False)
+    ##########################rospy.init_node('astartbasic', anonymous=False)
 
     # # Initialize the MyAstarNode class
     node = MyAstarNode(node_name='astartbasic')
@@ -355,8 +357,9 @@ if __name__ == '__main__':
 
     try:
     ## Start the node
-        node.run()
+        node.simulate_path_following(nodelist,path_node_IDs)
     except rospy.ROSInterruptException:
+
         pass
 
 

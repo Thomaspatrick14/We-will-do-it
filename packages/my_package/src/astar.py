@@ -84,7 +84,7 @@ class AstarPlanner:
 
 # Example usage
 
-planner = AstarPlanner("/config/params_maze_small.json")
+planner = AstarPlanner("/code/catkin_ws/src/We-will-do-it/packages/my_package/config/params_maze_small.json")
 
 
 
@@ -171,7 +171,7 @@ class MyAstarNode(DTROS):
         super(MyAstarNode, self).__init__(node_name=node_name, node_type=NodeType.GENERIC)
         self.pub = rospy.Publisher('/db8/joy_mapper_node/car_cmd', Twist2DStamped, queue_size=10)
 
-    def wrapToPi(angle):
+    def wrapToPi(self,angle):
         if angle > math.pi:
             k = math.ceil(angle / (2 * math.pi))
             angle -= 2 * k * math.pi
@@ -184,14 +184,15 @@ class MyAstarNode(DTROS):
 
 
 
-    def simulate_path_following(nodelist, path_node_IDs, pub):
+    def simulate_path_following(self,nodelist, path_node_IDs):
+        pub = self.pub
         # Settings
         cycle_freq = 50.0
         init_waiting_rate = 2.0
         distance_threshold = 0.03  # [m]
         err_o_threshold = 0.05  # [rad]
         vel_rotate = 2.0  # [rad/s]
-        vel_translate = 3.0  # [m/s]
+        vel_translate = 0.3  # [m/s]
         gain_rotate_while_translate = 10
     
         # Wait until the path can be sent (when the map has been loaded)
@@ -216,7 +217,7 @@ class MyAstarNode(DTROS):
                 if abs(err_o) >= err_o_threshold:
                     # Orient towards next point
                     twist = Twist2DStamped()
-                    twist.v = 0.0
+                    twist.v = 0.2
                     twist.omega = -vel_rotate * err_o / abs(err_o)
                     pub.publish(twist)
                 else:
@@ -239,7 +240,7 @@ class MyAstarNode(DTROS):
 if __name__ == '__main__':
 
     # # Initialize the ROS node
-    rospy.init_node('astartbasic', anonymous=False)
+    #rospy.init_node('astartbasic', anonymous=False)
 
     # # Initialize the MyAstarNode class
     node = MyAstarNode(node_name='astartbasic')
@@ -249,7 +250,7 @@ if __name__ == '__main__':
 
     try:
     #     # Start the node
-        node.run()
+        node.simulate_path_following(nodelist,path_node_IDs)
     except rospy.ROSInterruptException:
         pass
 
