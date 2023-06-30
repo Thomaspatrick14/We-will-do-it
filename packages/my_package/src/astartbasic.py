@@ -75,7 +75,7 @@ if __name__ == '__main__':
        node.run()
   
     # keep spinning
-    #rospy.spin()
+       rospy.spin()
     except rospy.ROSInterruptException:
         pass
     

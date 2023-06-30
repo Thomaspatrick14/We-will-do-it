@@ -3,7 +3,8 @@
 import os
 import rospy
 from duckietown.dtros import DTROS, NodeType
-from duckietown_msgs.msg import Pose2DStamped, Twist2DStamped
+from duckietown_msgs.msg import Pose2DStamped
+from duckietown_msgs.msg import Twist2DStamped 
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Header
 import signal
@@ -165,38 +166,65 @@ if goal_reached:
         print(nodeID)
 
 
+
 class MyAstarNode(DTROS):
 
     def __init__(self, node_name):
+        # initialize the DTROS parent class
         super(MyAstarNode, self).__init__(node_name=node_name, node_type=NodeType.GENERIC)
+        
+        # construct publisher and subscriber
         self.pub = rospy.Publisher('/db8/joy_mapper_node/car_cmd', Twist2DStamped, queue_size=10)
+        self.sub = rospy.Subscriber('/db8/velocity_to_pose_node/pose', Pose2DStamped, self.get_values)
+        
 
-    def wrapToPi(self,angle):
-        if angle > math.pi:
-            k = math.ceil(angle / (2 * math.pi))
-            angle -= 2 * k * math.pi
-            angle = MyAstarNode.wrapToPi(angle)  # Rerun to ensure correctness
-        elif angle < -math.pi:
-            k = math.floor(angle / (2 * math.pi))
-            angle += 2 * math.pi
-            angle = MyAstarNode.wrapToPi(angle)  # Rerun to ensure correctness
-        return angle
-
+    def get_values(self, data):
+       x = data.x
+       y = data.y
+       theta = data.theta
+       rospy.loginfo("Odometry: x=%.2f, y=%.2f, theta=%.2f", x, y, theta)
+    #    return x,y,theta
+       self.simulate_path_following(x,y,theta) 
 
 
-    def simulate_path_following(self,nodelist, path_node_IDs):
-        pub = self.pub
-        # Settings
+    def run(self,velocity, omega): 
+        ## publish message every 1 second
+        rate = rospy.Rate(1) # 1Hz
+        
+
+        while not rospy.is_shutdown() and not self.stop_flag:
+            twist = Twist2DStamped()
+            twist.header = Header()
+            twist.header.stamp = rospy.Time.now()
+            twist.header.frame_id = " "
+            twist.v = velocity # Set the linear velocity
+            twist.omega = omega # Set the angular velocity
+            rospy.loginfo("Publishing message: '%s'" % twist)
+            self.pub.publish(twist)
+            rate.sleep()
+
+
+    def simulate_path_following(self, odom_x, odom_y, odom_theta):
+        
+        # odom_x = data.x
+        # odom_y = data.y
+        # odom_theta = data.theta
+        #rospy.loginfo("Odometry: x=%.2f, y=%.2f, theta=%.2f", odom_x, odom_y, odom_theta)
+
+        # self.get_values()
+
+        rospy.loginfo("Odometry in simulate_path_following: x=%.2f, y=%.2f, theta=%.2f", odom_x, odom_y, odom_theta)
+        #Rest of your code for simulate_path_following
         cycle_freq = 50.0
-        init_waiting_rate = 2.0
+        #init_waiting_rate = 2.0
         distance_threshold = 0.03  # [m]
         err_o_threshold = 0.05  # [rad]
         vel_rotate = 2.0  # [rad/s]
         vel_translate = 0.3  # [m/s]
         gain_rotate_while_translate = 10
-    
+
         # Wait until the path can be sent (when the map has been loaded)
-        rospy.sleep(init_waiting_rate)
+        # rospy.sleep(init_waiting_rate)
 
         # Move to the locations specified in the path one-by-one
         for i in range(len(path_node_IDs)):
@@ -205,82 +233,188 @@ class MyAstarNode(DTROS):
 
             while err_x ** 2 + err_y ** 2 >= distance_threshold ** 2:
                 # Read odometry data and update pose error calculations
-                data = rospy.wait_for_message('/db8/velocity_to_pose_node/pose', Pose2DStamped)
-                odom_x = data.x
-                odom_y = data.y
-                odom_theta = data.theta
-
+                
                 err_x = odom_x - x_next
                 err_y = odom_y - y_next
                 err_o = MyAstarNode.wrapToPi(odom_theta - math.atan2(y_next - odom_y, x_next - odom_x))
 
                 if abs(err_o) >= err_o_threshold:
-                    # Orient towards next point
-                    twist = Twist2DStamped()
-                    twist.v = 0.2
-                    twist.omega = -vel_rotate * err_o / abs(err_o)
-                    pub.publish(twist)
+                    # Orient towards next point    
+                    vel = 1
+                    omega = -vel_rotate * err_o / abs(err_o)
+                    self.run(vel,omega)
                 else:
-                    # Move forward and keep orientation correct
-                    twist = Twist2DStamped()
-                    twist.v = vel_translate
-                    twist.omega = -gain_rotate_while_translate * err_o
-                    pub.publish(twist)
+                    # Move forward and keep orientation correct     
+                    vel = vel_translate
+                    omega = -gain_rotate_while_translate * err_o
+                    self.run(vel,omega)
 
                 rospy.sleep(1.0 / cycle_freq)
 
-            # Stop the movement of the robot
-            twist = Twist2DStamped()
-            twist.v = 0.0
-            twist.omega = 0.0
-            pub.publish(twist)
+
 
 
 
 if __name__ == '__main__':
-
-    # # Initialize the ROS node
-    #rospy.init_node('astartbasic', anonymous=False)
-
-    # # Initialize the MyAstarNode class
     node = MyAstarNode(node_name='astartbasic')
+    
+    # try:
+    #     # Run the node and start the path following simulation
+    #     # node.callback()
 
-    # Call simulate_path_following once before starting the node
-    # simulate_path_following(nodelist, path_node_IDs, node.pub)
-
-    try:
-    #     # Start the node
-        node.simulate_path_following(nodelist,path_node_IDs)
-    except rospy.ROSInterruptException:
-        pass
+    #     node
+    #     # Keep spinning
+    rospy.spin()
+    # except rospy.ROSInterruptException:
+    #     pass
 
 
 
-#         self.sub = rospy.Subscriber('/db8/velocity_to_pose_node/pose', Pose2DStamped, self.callback)
-#         self.stop_flag = False
 
-    #SUbscriber (Odometry data)
-    # def callback(self):
-    #     # Call the function here with the updated arguments
-    #     simulate_path_following(nodelist, path_node_IDs, self.pub, self.sub)
 
-    # def run(self):
-    #     rate = rospy.Rate(1)  # 1Hz
+    # def callback(self, data):
+    #     # Read odometry data and update pose error calculations
+    #     global odom_x 
+    #     global odom_y
+    #     global odom_theta
 
-    #     while not rospy.is_shutdown() and not self.stop_flag:
-    #         twist = Twist2DStamped()
-    #         twist.header = Header()
-    #         twist.header.stamp = rospy.Time.now()
-    #         twist.header.frame_id = " "
-    #         twist.v = 0.3  # Set the linear velocity
-    #         twist.omega = 3  # Set the angular velocity
-    #         rospy.loginfo("Publishing message: '%s'" % twist)
-    #         self.pub.publish(twist)
-    #         rate.sleep()
+    #     odom_x = data.x
+    #     odom_y = data.y
+    #     odom_theta = data.theta
+    #     rospy.loginfo("Odometry in simulate_path_following: x=%.2f, y=%.2f, theta=%.2f", odom_x, odom_y, odom_theta)
 
-    #         # Check for Ctrl+C signal
-    #         if cv2.waitKey(1) == 3:  # ASCII code for Ctrl+C is 3
-    #             self.stop_bot()
+# class MyAstarNode(DTROS):
 
-    # def stop_bot(self):
-    #     self.stop_flag = True
+#     def __init__(self, node_name):
+#         # initialize the DTROS parent class
+#         super(MyAstarNode, self).__init__(node_name=node_name, node_type=NodeType.GENERIC)
+        
+#         # construct publisher and subscriber
+#         self.pub = rospy.Publisher('/db8/joy_mapper_node/car_cmd', Twist2DStamped, queue_size=10)
+#         self.sub = rospy.Subscriber('/db8/velocity_to_pose_node/pose', Pose2DStamped, self.)
+        
+#     def wrapToPi(self,angle):
+#         if angle > math.pi:
+#             k = math.ceil(angle / (2 * math.pi))
+#             angle -= 2 * k * math.pi
+#             angle = MyAstarNode.wrapToPi(angle)  # Rerun to ensure correctness
+#         elif angle < -math.pi:
+#             k = math.floor(angle / (2 * math.pi))
+#             angle += 2 * math.pi
+#             angle = MyAstarNode.wrapToPi(angle)  # Rerun to ensure correctness
+#         return angle
+
+
+#     def simulate_path_following(self,nodelist, path_node_IDs,data):
+#         pub = self.pub
+#         # Settings
+#         cycle_freq = 50.0
+#         init_waiting_rate = 2.0
+#         distance_threshold = 0.03  # [m]
+#         err_o_threshold = 0.05  # [rad]
+#         vel_rotate = 2.0  # [rad/s]
+#         vel_translate = 0.3  # [m/s]
+#         gain_rotate_while_translate = 10
+    
+#         # Wait until the path can be sent (when the map has been loaded)
+#         rospy.sleep(init_waiting_rate)
+
+#         # Move to the locations specified in the path one-by-one
+#         for i in range(len(path_node_IDs)):
+#             x_next, y_next = nodelist[path_node_IDs[i]].x, nodelist[path_node_IDs[i]].y
+#             err_x, err_y, err_o = 0.0, 0.0, 0.0
+
+#             while err_x ** 2 + err_y ** 2 >= distance_threshold ** 2:
+#                 # Read odometry data and update pose error calculations
+#                 odom_x, odom_y, odom_theta  = MyAstarNode.callback()
+#                 err_x = odom_x - x_next
+#                 err_y = odom_y - y_next
+#                 err_o = MyAstarNode.wrapToPi(odom_theta - math.atan2(y_next - odom_y, x_next - odom_x))
+
+#                 if abs(err_o) >= err_o_threshold:
+#                     # Orient towards next point
+#                     twist = Twist2DStamped()
+#                     twist.v = 0.2
+#                     twist.omega = -vel_rotate * err_o / abs(err_o)
+#                     pub.publish(twist)
+#                 else:
+#                     # Move forward and keep orientation correct
+#                     twist = Twist2DStamped()
+#                     twist.v = vel_translate
+#                     twist.omega = -gain_rotate_while_translate * err_o
+#                     pub.publish(twist)
+
+#                 rospy.sleep(1.0 / cycle_freq)
+
+#             # Stop the movement of the robot
+#             twist = Twist2DStamped()
+#             twist.v = 0.0
+#             twist.omega = 0.0
+#             pub.publish(twist)
+
+
+
+
+
+# if __name__ == '__main__':
+    
+#     node = MyAstarNode(node_name='astartbasic')
+
+#     # run node
+#     # node.simulate_path_following(nodelist, path_node_IDs)
+#     node.simulate_path_following()
+#     # keep spinning
+#     rospy.spin()  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
