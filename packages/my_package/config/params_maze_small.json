@@ -2,7 +2,7 @@
   "World": {
     "OccupancyGridMap": {
       "filename": "../maps/maze_small.png",
-      "resolution": 0.250000,
+      "resolution": 0.25,
       "pixels_per_node": 2,
       "max_nodes_x": 10,
       "max_nodes_y": 10

@@ -12,7 +12,7 @@ import sys
 import cv2
 import json
 import math
-from pathlib import Path
+
 
 NODE_ID_NOT_SET = -1
 
@@ -165,7 +165,9 @@ if goal_reached:
     for nodeID in path_node_IDs:
         print(nodeID)
 
-
+for i in range(len(path_node_IDs)):
+    x_next, y_next = nodelist[path_node_IDs[i]].x, nodelist[path_node_IDs[i]].y
+    print(x_next,y_next)
 
 class MyAstarNode(DTROS):
 
@@ -176,34 +178,78 @@ class MyAstarNode(DTROS):
         # construct publisher and subscriber
         self.pub = rospy.Publisher('/db8/joy_mapper_node/car_cmd', Twist2DStamped, queue_size=10)
         self.sub = rospy.Subscriber('/db8/velocity_to_pose_node/pose', Pose2DStamped, self.get_values)
+        self.latest_data = None
         
-
+    # SUbcriber :- Odometry Data 
     def get_values(self, data):
-       x = data.x
-       y = data.y
-       theta = data.theta
-       rospy.loginfo("Odometry: x=%.2f, y=%.2f, theta=%.2f", x, y, theta)
-    #    return x,y,theta
-       self.simulate_path_following(x,y,theta) 
+        self.latest_data = data
+        x = data.x
+        y = data.y
+        theta = data.theta
+        rospy.loginfo("Odometry: x=%.2f, y=%.2f, theta=%.2f", x, y, theta)
+        self.simulate_path_following(x, y, theta)
+   
 
+    def wrapToPi(self,angle):
+        if angle > math.pi:
+            k = math.ceil(angle / (2 * math.pi))
+            angle -= 2 * k * math.pi
+            angle = self.wrapToPi(angle)  # Rerun to ensure correctness
+        elif angle < -math.pi:
+            k = math.floor(angle / (2 * math.pi))
+            angle += 2 * math.pi
+            angle = self.wrapToPi(angle)  # Rerun to ensure correctness
+        return angle
 
     def run(self,velocity, omega): 
         ## publish message every 1 second
-        rate = rospy.Rate(1) # 1Hz
+        rate = rospy.Rate(1)
+        twist = Twist2DStamped()
+        twist.header = Header()
+        twist.header.stamp = rospy.Time.now()
+        twist.header.frame_id = " "
+        twist.v = velocity # Set the linear velocity
+        twist.omega = omega # Set the angular velocity
+        rospy.loginfo("Publishing message: '%s'" % twist)
+        self.pub.publish(twist)
+	    
+    
+    # def go(self,err_x,err_y,err_o,distance_threshold,odom_x,odom_y,odom_theta,vel_rotate,err_o_threshold,vel_translate,x_next,y_next,gain_rotate_while_translate):
+    #     if err_x ** 2 + err_y ** 2 >= distance_threshold ** 2:
+    #         print("Entered ")
+    #         # Read odometry data and update pose error calculations
+    #         #Get the new odom values 
+    #         err_x = odom_x - x_next 
+    #         err_y = odom_y - y_next
+    #         err_o = self.wrapToPi(odom_theta - math.atan2(y_next - odom_y, x_next - odom_x))
+    #         print(err_o)
+    #         #self.run(0.5,0)
+    #         rospy.loginfo("Odometry new in simulate_path_following: x=%.2f, y=%.2f, theta=%.2f", odom_x, odom_y, odom_theta)
+    #         self.go(err_x,err_y,err_o,distance_threshold,odom_x,odom_y,odom_theta,vel_rotate,err_o_threshold,vel_translate,x_next,y_next,gain_rotate_while_translate)
+                
+            
+    def go(self,odom_x,odom_y,odom_theta):
+        #self.run(0.5,0)
+        rospy.loginfo("Odometry in simulate_path_following: x=%.2f, y=%.2f, theta=%.2f", odom_x, odom_y, odom_theta)
+
+        self.go(odom_x,odom_y,odom_theta)
+
+            # if err_o >= err_o_threshold or err_o <= -err_o_threshold:
+            #     print("I am rotating")
+            #     # Orient towards next point    
+            #     omega = -vel_rotate * err_o / abs(err_o)
+            #     self.run(0,omega)
+            #     rospy.loginfo("Odometry new in simulate_path_following: x=%.2f, y=%.2f, theta=%.2f", odom_x, odom_y, odom_theta)
+            #     self.go(err_x,err_y,err_o,distance_threshold,odom_x,odom_y,odom_theta,vel_rotate,err_o_threshold,vel_translate,x_next,y_next,gain_rotate_while_translate)
+                
+            # else:
+            #     print("I am moving straight")
+            #     self.run(vel_translate,0)                  #-gain_rotate_while_translate*err_o)
+            #     rospy.loginfo("Odometry new in simulate_path_following: x=%.2f, y=%.2f, theta=%.2f", odom_x, odom_y, odom_theta)
+            #     self.go(err_x,err_y,err_o,distance_threshold,odom_x,odom_y,odom_theta,vel_rotate,err_o_threshold,vel_translate,x_next,y_next,gain_rotate_while_translate)
+
+
         
-
-        while not rospy.is_shutdown() and not self.stop_flag:
-            twist = Twist2DStamped()
-            twist.header = Header()
-            twist.header.stamp = rospy.Time.now()
-            twist.header.frame_id = " "
-            twist.v = velocity # Set the linear velocity
-            twist.omega = omega # Set the angular velocity
-            rospy.loginfo("Publishing message: '%s'" % twist)
-            self.pub.publish(twist)
-            rate.sleep()
-
-
     def simulate_path_following(self, odom_x, odom_y, odom_theta):
         
         # odom_x = data.x
@@ -213,43 +259,87 @@ class MyAstarNode(DTROS):
 
         # self.get_values()
 
-        rospy.loginfo("Odometry in simulate_path_following: x=%.2f, y=%.2f, theta=%.2f", odom_x, odom_y, odom_theta)
-        #Rest of your code for simulate_path_following
-        cycle_freq = 50.0
-        #init_waiting_rate = 2.0
+        #rospy.loginfo("Odometry in simulate_path_following: x=%.2f, y=%.2f, theta=%.2f", odom_x, odom_y, odom_theta)
+        #self.run(0.5,0.2)
         distance_threshold = 0.03  # [m]
-        err_o_threshold = 0.05  # [rad]
+        err_o_threshold = 3  # [rad]
         vel_rotate = 2.0  # [rad/s]
         vel_translate = 0.3  # [m/s]
         gain_rotate_while_translate = 10
+        if path_node_IDs[0] == 0:
+            print("Going to the 0th")
+            #rospy.loginfo("Odometry new in simulate_path_following: x=%.2f, y=%.2f, theta=%.2f", odom_x, odom_y, odom_theta)
+            x_next, y_next = nodelist[path_node_IDs[0]].x, nodelist[path_node_IDs[0]].y
+            err_x = odom_x - x_next
+            err_y = odom_y - y_next
+            err_o = self.wrapToPi(odom_theta - math.atan2(y_next - odom_y, x_next - odom_x))
+            rospy.loginfo("Before in simulate_path_following: x=%.2f, y=%.2f, theta=%.2f", odom_x, odom_y, odom_theta)
+            #self.go(err_x,err_y,err_o,distance_threshold,odom_x,odom_y,odom_theta,vel_rotate,err_o_threshold,vel_translate,x_next,y_next,gain_rotate_while_translate)
+            self.go(odom_x,odom_y,odom_theta)
+
+        # if path_node_IDs[1] == 1:
+        #     print("Going to the 1st")
+        #     #rospy.loginfo("Odometry new in simulate_path_following: x=%.2f, y=%.2f, theta=%.2f", odom_x, odom_y, odom_theta)
+        #     x_next, y_next = nodelist[path_node_IDs[0]].x, nodelist[path_node_IDs[0]].y
+        #     err_x = odom_x - x_next
+        #     err_y = odom_y - y_next
+        #     err_o = self.wrapToPi(odom_theta - math.atan2(y_next - odom_y, x_next - odom_x))
+        #     self.go(err_x,err_y,err_o,distance_threshold,odom_x,odom_y,odom_theta,vel_rotate,err_o_threshold,vel_translate,x_next,y_next,gain_rotate_while_translate)
+
+        # if path_node_IDs[2] == 2:
+        #     print("Going to the 2nd")
+        #     #rospy.loginfo("Odometry new in simulate_path_following: x=%.2f, y=%.2f, theta=%.2f", odom_x, odom_y, odom_theta)
+        #     x_next, y_next = nodelist[path_node_IDs[0]].x, nodelist[path_node_IDs[0]].y
+        #     err_x = odom_x - x_next
+        #     err_y = odom_y - y_next
+        #     err_o = self.wrapToPi(odom_theta - math.atan2(y_next - odom_y, x_next - odom_x))
+        #     self.go(err_x,err_y,err_o,distance_threshold,odom_x,odom_y,odom_theta,vel_rotate,err_o_threshold,vel_translate,x_next,y_next,gain_rotate_while_translate)
+
+        # if path_node_IDs[3] == 9:
+        #     print("Going to the 3rd")
+        #     #rospy.loginfo("Odometry new in simulate_path_following: x=%.2f, y=%.2f, theta=%.2f", odom_x, odom_y, odom_theta)
+        #     x_next, y_next = nodelist[path_node_IDs[0]].x, nodelist[path_node_IDs[0]].y
+        #     err_x = odom_x - x_next
+        #     err_y = odom_y - y_next
+        #     err_o = self.wrapToPi(odom_theta - math.atan2(y_next - odom_y, x_next - odom_x))
+        #     self.go(err_x,err_y,err_o,distance_threshold,odom_x,odom_y,odom_theta,vel_rotate,err_o_threshold,vel_translate,x_next,y_next,gain_rotate_while_translate)
+
+           
+        #Rest of your code for simulate_path_following
+        # cycle_freq = 50.0
+        # init_waiting_rate = 2.0
+        # distance_threshold = 0.03  # [m]
+        # err_o_threshold = 0.05  # [rad]
+        # vel_rotate = 2.0  # [rad/s]
+        # vel_translate = 0.3  # [m/s]
+        # gain_rotate_while_translate = 10
+
 
         # Wait until the path can be sent (when the map has been loaded)
         # rospy.sleep(init_waiting_rate)
 
         # Move to the locations specified in the path one-by-one
-        for i in range(len(path_node_IDs)):
-            x_next, y_next = nodelist[path_node_IDs[i]].x, nodelist[path_node_IDs[i]].y
-            err_x, err_y, err_o = 0.0, 0.0, 0.0
+        # if self.arr < len(path_node_IDs):
+        #     x_next, y_next = nodelist[path_node_IDs[self.arr]].x, nodelist[path_node_IDs[self.arr]].y
+        #     err_x = odom_x - x_next
+        #     err_y = odom_y - y_next
+        #     err_o = self.wrapToPi(odom_theta - math.atan2(y_next - odom_y, x_next - odom_x))
+        #     while err_x ** 2 + err_y ** 2 >= distance_threshold ** 2:
+        #         # Read odometry data and update pose error calculations
+        #         #Get the new odom values 
 
-            while err_x ** 2 + err_y ** 2 >= distance_threshold ** 2:
-                # Read odometry data and update pose error calculations
-                
-                err_x = odom_x - x_next
-                err_y = odom_y - y_next
-                err_o = MyAstarNode.wrapToPi(odom_theta - math.atan2(y_next - odom_y, x_next - odom_x))
-
-                if abs(err_o) >= err_o_threshold:
-                    # Orient towards next point    
-                    vel = 1
-                    omega = -vel_rotate * err_o / abs(err_o)
-                    self.run(vel,omega)
-                else:
-                    # Move forward and keep orientation correct     
-                    vel = vel_translate
-                    omega = -gain_rotate_while_translate * err_o
-                    self.run(vel,omega)
-
-                rospy.sleep(1.0 / cycle_freq)
+        #         if abs(err_o) >= err_o_threshold:
+        #             # Orient towards next point    
+        #             # velocity = 0.5
+        #             omega = -vel_rotate * err_o / abs(err_o)
+        #             self.run(vel_translate, omega)
+        #         else:
+        #             # Move forward and keep orientation correct     
+        #             # velocity = vel_translate
+        #             omega = -gain_rotate_while_translate * err_o
+        #             self.run(vel_translate,omega)
+        # else:
+        #     self.run(0,0)
 
 
 
