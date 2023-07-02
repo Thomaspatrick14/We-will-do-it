@@ -175,10 +175,10 @@ class MyAstarNode(DTROS):
         super(MyAstarNode, self).__init__(node_name=node_name, node_type=NodeType.GENERIC)
         
         # construct publisher and subscriber
-        #self.i = 1
+        self.i = 1
         self.pub = rospy.Publisher('/db8/joy_mapper_node/car_cmd', Twist2DStamped, queue_size=10)
-        # if self.i == 1:
-        self.sub = rospy.Subscriber('/db8/velocity_to_pose_node/pose', Pose2DStamped, self.get_values)
+        if self.i == 1:
+            self.sub = rospy.Subscriber('/db8/velocity_to_pose_node/pose', Pose2DStamped, self.get_values)
         
 
     # SUbcriber :- Odometry Data 
@@ -186,7 +186,7 @@ class MyAstarNode(DTROS):
         odom_x = data.x
         odom_y = data.y
         odom_theta = data.theta
-        # rospy.loginfo("Odometry: x=%.2f, y=%.2f, theta=%.2f", odom_x, odom_y, odom_theta)
+        rospy.loginfo("Odometry: x=%.2f, y=%.2f, theta=%.2f", odom_x, odom_y, odom_theta)
         distance_threshold = 0.03  # [m]
         err_o_threshold = 3  # [rad]
         vel_rotate = 2.0  # [rad/s]
@@ -198,7 +198,6 @@ class MyAstarNode(DTROS):
         err_x = odom_x - x_next
         err_y = odom_y - y_next
         err_o = self.wrapToPi(odom_theta - math.atan2(y_next - odom_y, x_next - odom_x))
-        
         if err_x ** 2 + err_y ** 2 >= distance_threshold ** 2:
             # Read odometry data and update pose error calculations
             if err_o >= err_o_threshold or err_o <= -err_o_threshold:
@@ -207,16 +206,16 @@ class MyAstarNode(DTROS):
                 omega = -vel_rotate * err_o / abs(err_o)
                 self.run(0,omega)
                 rospy.loginfo("Odometry new in simulate_path_following: x=%.2f, y=%.2f, theta=%.2f", odom_x, odom_y, odom_theta)
-                #rospy.Subscriber('/db8/velocity_to_pose_node/pose', Pose2DStamped, self.get_values)
+                rospy.Subscriber('/db8/velocity_to_pose_node/pose', Pose2DStamped, self.get_values)
             else:
                 # Move forward and keep orientation correct
                 print("I am moving straight")
                 self.run(vel_translate,-gain_rotate_while_translate*err_o)                  #-gain_rotate_while_translate*err_o)
                 rospy.loginfo("Odometry new in simulate_path_following: x=%.2f, y=%.2f, theta=%.2f", odom_x, odom_y, odom_theta)
-                #ospy.Subscriber('/db8/velocity_to_pose_node/pose', Pose2DStamped, self.get_values)
-        # else:
-        #     self.i +=1
-        #     #rospy.Subscriber('/db8/velocity_to_pose_node/pose', Pose2DStamped, self.get_values)
+                rospy.Subscriber('/db8/velocity_to_pose_node/pose', Pose2DStamped, self.get_values)
+        else:
+            self.i +=1
+            rospy.Subscriber('/db8/velocity_to_pose_node/pose', Pose2DStamped, self.get_values)
    
 
     def wrapToPi(self,angle):
