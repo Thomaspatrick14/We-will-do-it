@@ -214,53 +214,25 @@ class MyAstarNode(DTROS):
         self.pub.publish(twist)
 	    
     
-    # def go(self,err_x,err_y,err_o,distance_threshold,odom_x,odom_y,odom_theta,vel_rotate,err_o_threshold,vel_translate,x_next,y_next,gain_rotate_while_translate):
-    #     if err_x ** 2 + err_y ** 2 >= distance_threshold ** 2:
-    #         print("Entered ")
-    #         # Read odometry data and update pose error calculations
-    #         #Get the new odom values 
-    #         err_x = odom_x - x_next 
-    #         err_y = odom_y - y_next
-    #         err_o = self.wrapToPi(odom_theta - math.atan2(y_next - odom_y, x_next - odom_x))
-    #         print(err_o)
-    #         #self.run(0.5,0)
-    #         rospy.loginfo("Odometry new in simulate_path_following: x=%.2f, y=%.2f, theta=%.2f", odom_x, odom_y, odom_theta)
-    #         self.go(err_x,err_y,err_o,distance_threshold,odom_x,odom_y,odom_theta,vel_rotate,err_o_threshold,vel_translate,x_next,y_next,gain_rotate_while_translate)
-                
+    def go(self,err_x,err_y,err_o,distance_threshold,odom_x,odom_y,odom_theta,vel_rotate,err_o_threshold,vel_translate,x_next,y_next,gain_rotate_while_translate):
+        if err_o >= err_o_threshold or err_o <= -err_o_threshold:
+            print("I am rotating")
+            # Orient towards next point    
+            omega = -vel_rotate * err_o / abs(err_o)
+            self.run(0,omega)
+            rospy.loginfo("Odometry new in simulate_path_following: x=%.2f, y=%.2f, theta=%.2f", odom_x, odom_y, odom_theta)
+            self.go(err_x,err_y,err_o,distance_threshold,odom_x,odom_y,odom_theta,vel_rotate,err_o_threshold,vel_translate,x_next,y_next,gain_rotate_while_translate)
             
-    def go(self,odom_x,odom_y,odom_theta):
-        #self.run(0.5,0)
-        rospy.loginfo("Odometry in simulate_path_following: x=%.2f, y=%.2f, theta=%.2f", odom_x, odom_y, odom_theta)
-
-        self.go(odom_x,odom_y,odom_theta)
-
-            # if err_o >= err_o_threshold or err_o <= -err_o_threshold:
-            #     print("I am rotating")
-            #     # Orient towards next point    
-            #     omega = -vel_rotate * err_o / abs(err_o)
-            #     self.run(0,omega)
-            #     rospy.loginfo("Odometry new in simulate_path_following: x=%.2f, y=%.2f, theta=%.2f", odom_x, odom_y, odom_theta)
-            #     self.go(err_x,err_y,err_o,distance_threshold,odom_x,odom_y,odom_theta,vel_rotate,err_o_threshold,vel_translate,x_next,y_next,gain_rotate_while_translate)
-                
-            # else:
-            #     print("I am moving straight")
-            #     self.run(vel_translate,0)                  #-gain_rotate_while_translate*err_o)
-            #     rospy.loginfo("Odometry new in simulate_path_following: x=%.2f, y=%.2f, theta=%.2f", odom_x, odom_y, odom_theta)
-            #     self.go(err_x,err_y,err_o,distance_threshold,odom_x,odom_y,odom_theta,vel_rotate,err_o_threshold,vel_translate,x_next,y_next,gain_rotate_while_translate)
+        else:
+            print("I am moving straight")
+            self.run(vel_translate,0)                  #-gain_rotate_while_translate*err_o)
+            rospy.loginfo("Odometry new in simulate_path_following: x=%.2f, y=%.2f, theta=%.2f", odom_x, odom_y, odom_theta)
+            self.go(err_x,err_y,err_o,distance_threshold,odom_x,odom_y,odom_theta,vel_rotate,err_o_threshold,vel_translate,x_next,y_next,gain_rotate_while_translate)
 
 
         
     def simulate_path_following(self, odom_x, odom_y, odom_theta):
         
-        # odom_x = data.x
-        # odom_y = data.y
-        # odom_theta = data.theta
-        #rospy.loginfo("Odometry: x=%.2f, y=%.2f, theta=%.2f", odom_x, odom_y, odom_theta)
-
-        # self.get_values()
-
-        #rospy.loginfo("Odometry in simulate_path_following: x=%.2f, y=%.2f, theta=%.2f", odom_x, odom_y, odom_theta)
-        #self.run(0.5,0.2)
         distance_threshold = 0.03  # [m]
         err_o_threshold = 3  # [rad]
         vel_rotate = 2.0  # [rad/s]
@@ -304,8 +276,15 @@ class MyAstarNode(DTROS):
         #     err_o = self.wrapToPi(odom_theta - math.atan2(y_next - odom_y, x_next - odom_x))
         #     self.go(err_x,err_y,err_o,distance_threshold,odom_x,odom_y,odom_theta,vel_rotate,err_o_threshold,vel_translate,x_next,y_next,gain_rotate_while_translate)
 
-           
-        #Rest of your code for simulate_path_following
+
+if __name__ == '__main__':
+    node = MyAstarNode(node_name='astartbasic')
+    rospy.spin()
+
+
+
+
+     #Rest of your code for simulate_path_following
         # cycle_freq = 50.0
         # init_waiting_rate = 2.0
         # distance_threshold = 0.03  # [m]
@@ -340,26 +319,6 @@ class MyAstarNode(DTROS):
         #             self.run(vel_translate,omega)
         # else:
         #     self.run(0,0)
-
-
-
-
-
-if __name__ == '__main__':
-    node = MyAstarNode(node_name='astartbasic')
-    
-    # try:
-    #     # Run the node and start the path following simulation
-    #     # node.callback()
-
-    #     node
-    #     # Keep spinning
-    rospy.spin()
-    # except rospy.ROSInterruptException:
-    #     pass
-
-
-
 
 
     # def callback(self, data):
