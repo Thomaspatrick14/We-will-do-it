@@ -30,7 +30,8 @@ List the dependencies in the files `dependencies-apt.txt` and
 ### 4. Place your code
 
 Place your code in the directory `/packages/` of
-your new repository.
+your new repository. 
+The latest version of the Astar node is provided in the file 'astar.py'.
 
 
 ### 5. Setup launchers
